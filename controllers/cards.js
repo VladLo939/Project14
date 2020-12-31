@@ -19,13 +19,16 @@ module.exports.createCard = (req, res) => {
 
 module.exports.deleteCard = (req, res) => {
   Cards.findByIdAndDelete(req.params.id)
-    .orFail(new Error('notValidId'))
-    .then((card) => res.status(200).send({ data: card }))
+    .then((card) => {
+      if (card.owner.toString() !== req.user._id) {
+        res.status(403).send({ message: 'Попытка удалить чужую карточку' });
+      } else res.status(200).send({ data: card });
+    })
     .catch((err) => {
-      if (err.message === 'notValidId') {
+      if (err.name === 'CastError') {
         res.status(404).send({ message: 'Карточка не найдена' });
       } else {
-        res.status(500).send({ message: 'Произошла ошибка' });
+        res.status(500).send({ message: 'Ошибка Сервера' });
       }
     });
 };
