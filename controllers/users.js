@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 
+const { NODE_ENV, JWT_SECRET } = process.env;
+
 module.exports.getUser = (req, res) => {
   User.find({})
     .then((users) => res.json({ data: users }))
@@ -10,13 +12,13 @@ module.exports.getUser = (req, res) => {
 
 module.exports.getUserId = (req, res) => {
   User.findById(req.params.id)
-    .orFail(() => new Error('NotValidId'))
+    .orFail(() => new Error('Not found'))
     .then((user) => res.status(200).json({ data: user }))
     .catch((err) => {
       if (err.name === 'CastError') {
-        res.status(404).json({ message: 'Пользователь не найден' });
-      } else if (err.name === 'NotValidId') {
-        res.status(400).json({ message: 'Некореектные дынные' });
+        res.status(400).json({ message: 'Невалидный id' });
+      } else if (err.message === 'Not found') {
+        res.status(404).json({ message: 'объект не найден' });
       } else res.status(500).json({ message: 'Ошибка сервера' });
     });
 };
@@ -60,9 +62,11 @@ module.exports.login = (req, res) => {
 
   return User.findUserByCredentials(email, password)
     .then((user) => {
-      res.send({
-        token: jwt.sign({ _id: user._id }, 'some-secret-key', { expiresIn: '7d' }),
-      });
+      const token = jwt.sign(
+        { _id: user._id },
+        NODE_ENV === 'production' ? JWT_SECRET : 'dev-secret',
+      );
+      res.send({ token });
     })
     .catch((err) => {
       res.status(401).send({ message: err.message });
